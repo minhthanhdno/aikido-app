@@ -1,11 +1,52 @@
 ---
-import Welcome from '../components/Welcome.astro';
-import Layout from '../layouts/Layout.astro';
-
-// Welcome to Astro! Wondering what to do next? Check out the Astro documentation at https://docs.astro.build
-// Don't want to use any of this? Delete everything in this file, the `assets`, `components`, and `layouts` directories, and start fresh.
+import AikidoMatrix from '../components/AikidoMatrix.jsx';
+import '../styles/global.css';
 ---
 
-<Layout>
-	<Welcome />
-</Layout>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- Meta viewport thiết yếu để chống zoom và co giãn trên iOS/Android -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" />
+    <meta name="generator" content={Astro.generator} />
+    <meta name="theme-color" content="#020617" />
+    <title>Từ Điển Kỹ Thuật Aikido IV Đẳng</title>
+
+    <!-- THÊM DÒNG NÀY: Ép tải Tailwind CSS trực tiếp để bảo vệ giao diện -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style is:global>
+      /* Tiện ích ẩn scrollbar toàn cục */
+      .scrollbar-hide::-webkit-scrollbar {
+        display: none;
+      }
+      .scrollbar-hide {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+
+      /* Custom Scrollbar cho danh sách */
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background-color: #334155;
+        border-radius: 10px;
+      }
+      
+      body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden; /* Biến browser thành App window */
+        background-color: #020617;
+      }
+    </style>
+  </head>
+  <body>
+    <AikidoMatrix client:only="react" />
+  </body>
+</html>
