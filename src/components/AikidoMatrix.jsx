@@ -1,20 +1,19 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, PlayCircle, BookOpen, Calendar, Video, FileText, AlertCircle } from 'lucide-react';
+import { Search, PlayCircle, BookOpen, Calendar, FileText, AlertCircle, ArrowLeft, LayoutGrid, Video } from 'lucide-react';
 
-// THAY URL WEB APP CỦA BẠN VÀO ĐÂY
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyDMb2cs12xPnpjuAQa3GLp4OPXFlZdGzTc3FxxNv3RbWXheWFYSMHQWr15X23JjU-a/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyDMb2cs12xPnpjuAQa3GLp4OPXFlZdGzTc3FxxNv3RbWXheWFYSMHQWr15X23JjU-a/exec"; 
 
 export default function AikidoMatrix() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedTech, setSelectedTech] = useState(null);
-  const [selectedWeek, setSelectedWeek] = useState('All');
+  const [selectedTech, setSelectedTech] = useState(null); 
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedWeek, setSelectedWeek] = useState('All'); // Khôi phục tính năng chọn Tuần
+  const [autoPlay, setAutoPlay] = useState(false);
 
-  // Chuẩn hóa ngày tháng
   const formatDate = (dateStr) => {
     if (!dateStr) return '';
-    if (dateStr.includes('GMT') || dateStr.includes('Time')) {
+    if (String(dateStr).includes('GMT') || String(dateStr).includes('Time')) {
       const d = new Date(dateStr);
       return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
     }
@@ -25,238 +24,255 @@ export default function AikidoMatrix() {
     fetch(APPS_SCRIPT_URL)
       .then(res => res.json())
       .then(fetchedData => {
-        setData(fetchedData);
-        if(fetchedData.length > 0) setSelectedTech(fetchedData[0]);
+        if (Array.isArray(fetchedData)) {
+           setData(fetchedData);
+        } else {
+           console.error("Dữ liệu API không phải là mảng:", fetchedData);
+           setData([]);
+        }
         setLoading(false);
       })
       .catch(err => {
         console.error("Lỗi tải dữ liệu:", err);
+        setData([]);
         setLoading(false);
       });
   }, []);
 
+  // Lọc dữ liệu kết hợp cả Từ khóa tìm kiếm và Tuần đã chọn
   const filteredData = useMemo(() => {
     return data.filter(item => {
-      const matchWeek = selectedWeek === 'All' || item.week === String(selectedWeek);
+      const matchWeek = selectedWeek === 'All' || String(item.week) === String(selectedWeek);
       const searchLower = searchTerm.toLowerCase();
-      const matchSearch = (item.techniques || '').toLowerCase().includes(searchLower) || 
-                          (item.attacks || '').toLowerCase().includes(searchLower) ||
-                          (item.group || '').toLowerCase().includes(searchLower);
+      const matchSearch = String(item.techniques || '').toLowerCase().includes(searchLower) || 
+                          String(item.attacks || '').toLowerCase().includes(searchLower) ||
+                          String(item.group || '').toLowerCase().includes(searchLower);
       return matchWeek && matchSearch;
     });
-  }, [data, selectedWeek, searchTerm]);
+  }, [data, searchTerm, selectedWeek]);
 
-  // Sắp xếp các tuần theo thứ tự số học
+  // Tạo danh sách các Tuần hiện có để làm nút bấm
   const weeks = ['All', ...[...new Set(data.map(item => item.week).filter(Boolean))].sort((a,b) => Number(a) - Number(b))];
+
+  const groupedData = useMemo(() => {
+    const groups = {};
+    filteredData.forEach(item => {
+      const w = item.week || 'Khác';
+      if (!groups[w]) groups[w] = [];
+      groups[w].push(item);
+    });
+    return Object.keys(groups).sort((a,b) => Number(a) - Number(b)).map(week => ({
+      week,
+      items: groups[week]
+    }));
+  }, [filteredData]);
+
+  const handleSelect = (item) => {
+    setSelectedTech(item);
+    setAutoPlay(true);
+  };
+
+  const handleBackToDashboard = () => {
+    setSelectedTech(null);
+    setAutoPlay(false);
+  };
 
   if (loading) {
     return (
       <div className="flex h-[100dvh] bg-[#020617] items-center justify-center">
         <div className="flex flex-col items-center gap-4">
            <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-red-600"></div>
-           <div className="text-slate-300 font-medium animate-pulse">Đang đồng bộ dữ liệu...</div>
+           <div className="text-slate-300 font-medium animate-pulse tracking-wide">Đang đồng bộ võ đường...</div>
         </div>
       </div>
     );
   }
 
-  // ================= CÁC KHỐI GIAO DIỆN DÙNG CHUNG =================
-
-  const renderVideo = () => (
-    <div className="w-full bg-black relative" style={{ paddingTop: '56.25%' }}>
-      {selectedTech?.videoId ? (
-        selectedTech.videoSource === 'youtube' ? (
-          <iframe 
-            style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none' }}
-            src={`https://www.youtube.com/embed/${selectedTech.videoId}?rel=0&autoplay=1&modestbranding=1`} 
-            title={selectedTech.techniques}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-            allowFullScreen>
-          </iframe>
-        ) : (
-          <iframe 
-            style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none' }}
-            src={`https://drive.google.com/file/d/${selectedTech.videoId}/preview`}
-            allow="autoplay">
-          </iframe>
-        )
-      ) : (
-        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }} className="flex flex-col items-center justify-center text-slate-600 bg-slate-900/50">
-          <Video className="w-10 h-10 mb-2 opacity-30" />
-          <p className="text-sm">Chưa cập nhật video</p>
-        </div>
-      )}
-    </div>
-  );
-
-  const renderHeader = () => (
-    <div className="flex flex-col items-start">
-      <div className="inline-flex items-center gap-2 px-3 py-1 rounded bg-red-900/30 text-red-400 text-[10px] md:text-xs font-bold uppercase mb-2 md:mb-4 border border-red-900/50">
-        <Calendar className="w-3.5 h-3.5" />
-        {formatDate(selectedTech?.date)} • {selectedTech?.group}
-      </div>
-      <h2 className="text-2xl md:text-4xl font-bold text-white leading-tight">
-        {selectedTech?.techniques}
-      </h2>
-    </div>
-  );
-
-  const renderAttackAndNotes = () => (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-start gap-3 bg-slate-800/40 p-4 rounded-lg border border-slate-700">
-        <AlertCircle className="w-5 h-5 md:w-6 md:h-6 text-amber-500 shrink-0 mt-0.5" />
-        <div>
-          <p className="text-[10px] md:text-xs text-slate-400 uppercase tracking-wider mb-1">Tình huống tấn công</p>
-          <p className="text-sm md:text-lg text-slate-100 font-semibold">{selectedTech?.attacks}</p>
-        </div>
-      </div>
+  return (
+    <div className="flex h-[100dvh] bg-[#0f172a] text-white overflow-hidden font-sans">
       
-      {selectedTech?.notes && (
-        <div className="bg-slate-900 p-4 md:p-5 rounded-xl border-l-4 border-l-red-600 border border-slate-800">
-          <div className="flex items-center gap-2 mb-3 text-slate-300">
-            <FileText className="w-4 h-4 md:w-5 md:h-5" />
-            <h3 className="font-bold uppercase text-xs md:text-sm tracking-wider">Ghi chú huấn luyện</h3>
-          </div>
-          <ul className="space-y-1.5 md:space-y-2 text-sm md:text-base text-slate-300">
-            {selectedTech.notes.split('\n').map((note, idx) => (
-              note.trim() && (
-                <li key={idx} className="flex items-start gap-2">
-                  <span className="text-red-500 mt-0.5">•</span>
-                  <span>{note}</span>
-                </li>
-              )
-            ))}
-          </ul>
-        </div>
-      )}
-    </div>
-  );
-
-  const renderSearchAndList = () => (
-    <div className="flex flex-col h-full bg-[#0f172a] rounded-xl overflow-hidden md:rounded-none">
-      {/* Bộ lọc & Tìm kiếm */}
-      <div className="p-3 md:p-4 bg-[#020617] border-b border-slate-800 shrink-0">
-        <div className="relative mb-3 md:mb-4">
-          <Search className="absolute left-3 top-2.5 md:top-3 h-4 w-4 md:h-5 md:w-5 text-slate-400" />
-          <input
-            type="text"
-            className="w-full pl-9 md:pl-10 pr-4 py-2 md:py-3 bg-slate-900 border border-slate-700 text-sm md:text-base text-white rounded-lg md:rounded-xl focus:outline-none focus:border-red-600 transition-colors placeholder-slate-500"
-            placeholder="Tìm kỹ thuật, đòn tấn công..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-          {weeks.map(w => (
-            <button 
-              key={w}
-              onClick={() => setSelectedWeek(w)}
-              className={`px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-xs md:text-sm font-semibold whitespace-nowrap transition-colors ${
-                selectedWeek === w 
-                  ? 'bg-red-700 text-white shadow-md shadow-red-900/20' 
-                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-              }`}
-            >
-              {w === 'All' ? 'Tất cả' : `Tuần ${w}`}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Danh sách Kỹ thuật */}
-      <div className="flex-1 overflow-y-auto p-2 md:p-3 space-y-2 md:space-y-3 custom-scrollbar">
-        {filteredData.length === 0 ? (
-          <div className="text-center py-6 md:py-10 text-slate-500">
-            <BookOpen className="w-8 h-8 md:w-12 md:h-12 mx-auto mb-2 md:mb-3 opacity-20" />
-            <p className="text-xs md:text-base">Không tìm thấy dữ liệu</p>
+      {/* ================= CỘT TRÁI: VIDEO PLAYER ================= */}
+      <div className={`w-full md:w-[60%] bg-[#020617] border-r border-slate-800 flex-col z-20 transition-all duration-300 ${selectedTech ? 'flex' : 'hidden md:flex'}`}>
+        
+        {!selectedTech ? (
+          <div className="flex flex-col items-center justify-center h-full text-slate-500 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-900 to-[#020617]">
+             <LayoutGrid className="w-16 h-16 mb-6 opacity-20" />
+             <h2 className="text-2xl font-bold text-slate-300 mb-2 uppercase tracking-widest">Từ Điển Aikido</h2>
+             <p className="text-sm font-medium">Vui lòng chọn một kỹ thuật từ bảng điều khiển bên phải</p>
           </div>
         ) : (
-          filteredData.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setSelectedTech(item)}
-              className={`w-full text-left p-3 md:p-4 rounded-xl border transition-all flex flex-col gap-2 ${
-                selectedTech?.id === item.id 
-                  ? 'bg-slate-800 border-red-600 shadow-[0_0_15px_rgba(220,38,38,0.2)]' 
-                  : 'bg-[#1e293b] border-slate-700 hover:border-slate-500'
-              }`}
-            >
-              <div className="flex justify-between items-center w-full">
-                <span className={`text-[9px] md:text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${
-                  selectedTech?.id === item.id ? 'bg-red-500/20 text-red-400' : 'bg-slate-700 text-slate-300'
-                }`}>
-                  {item.group}
-                </span>
-                {item.videoId && <PlayCircle className={`w-4 h-4 md:w-5 md:h-5 ${selectedTech?.id === item.id ? 'text-red-500' : 'text-slate-400'}`} />}
+          <>
+            <div className="md:hidden flex items-center justify-between p-3 bg-[#0f172a] border-b border-slate-800">
+               <button 
+                 onClick={handleBackToDashboard} 
+                 className="flex items-center gap-2 text-slate-300 hover:text-white px-3 py-1.5 bg-slate-800/80 rounded-lg active:scale-95 transition-transform"
+               >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span className="text-sm font-bold uppercase tracking-wider">Trở về</span>
+               </button>
+               <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Chi tiết đòn</span>
+            </div>
+
+            <div className="w-full bg-black relative shrink-0 shadow-2xl" style={{ paddingTop: '56.25%' }}>
+              {selectedTech.videoSource === 'youtube' ? (
+                <iframe 
+                  className="absolute top-0 left-0 w-full h-full border-none"
+                  src={`https://www.youtube.com/embed/${selectedTech.videoId}?rel=0&modestbranding=1&autoplay=${autoPlay ? 1 : 0}`} 
+                  title={selectedTech.techniques}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                  allowFullScreen>
+                </iframe>
+              ) : selectedTech.videoSource === 'drive' ? (
+                <iframe 
+                  className="absolute top-0 left-0 w-full h-full border-none bg-slate-900"
+                  src={`https://drive.google.com/file/d/${selectedTech.videoId}/preview`}
+                  allow={autoPlay ? "autoplay; fullscreen; encrypted-media" : "fullscreen; encrypted-media"}
+                  loading="lazy">
+                </iframe>
+              ) : (
+                <div className="absolute top-0 left-0 w-full h-full flex flex-col items-center justify-center text-slate-600 bg-slate-900/50">
+                  <Video className="w-10 h-10 mb-2 opacity-30" />
+                  <p className="text-sm">Video đang được cập nhật</p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-5 md:p-8 custom-scrollbar bg-gradient-to-b from-slate-900 to-[#020617]">
+              <div className="mb-2">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-red-950/40 text-red-400 text-[10px] md:text-xs font-bold uppercase mb-4 border border-red-900/30">
+                  <Calendar className="w-3.5 h-3.5" />
+                  {formatDate(selectedTech?.date)} • {selectedTech?.group}
+                </div>
+                <h2 className="text-2xl md:text-4xl font-extrabold text-white leading-tight">
+                  {selectedTech?.techniques}
+                </h2>
               </div>
-              
-              <div>
-                <h3 className={`text-sm md:text-base font-bold line-clamp-2 ${selectedTech?.id === item.id ? 'text-white' : 'text-slate-200'}`}>
-                  {item.techniques}
-                </h3>
-                <p className="text-[11px] md:text-sm text-slate-400 line-clamp-1 mt-0.5 md:mt-1">
-                  {item.attacks}
-                </p>
+
+              <div className="hidden md:flex flex-col gap-6 mt-8">
+                 <div className="flex items-start gap-4 bg-slate-800/40 p-5 rounded-xl border border-slate-700/50 backdrop-blur-sm">
+                   <AlertCircle className="w-6 h-6 text-amber-500 shrink-0 mt-0.5" />
+                   <div>
+                     <p className="text-xs text-slate-400 uppercase tracking-widest mb-1.5 font-bold">Tình huống tấn công</p>
+                     <p className="text-lg text-slate-100 font-semibold">{selectedTech?.attacks}</p>
+                   </div>
+                 </div>
+                 
+                 {selectedTech?.notes && (
+                   <div className="bg-slate-900/80 p-6 rounded-xl border-l-4 border-l-red-600 border border-slate-800/80">
+                     <div className="flex items-center gap-2 mb-4 text-slate-300">
+                       <FileText className="w-5 h-5" />
+                       <h3 className="font-bold uppercase text-sm tracking-widest">Ghi chú huấn luyện</h3>
+                     </div>
+                     <ul className="space-y-2 text-slate-300 leading-relaxed">
+                       {String(selectedTech.notes).split('\n').map((note, idx) => (
+                         note.trim() && (
+                           <li key={idx} className="flex items-start gap-3">
+                             <span className="text-red-500 mt-1.5 text-xs">◆</span>
+                             <span>{note}</span>
+                           </li>
+                         )
+                       ))}
+                     </ul>
+                   </div>
+                 )}
               </div>
-            </button>
-          ))
+            </div>
+          </>
         )}
       </div>
-    </div>
-  );
 
-  return (
-    <div className="flex flex-col h-[100dvh] bg-[#0f172a] text-white overflow-hidden selection:bg-red-900 selection:text-white">
-      
-      {/* ================= GIAO DIỆN MOBILE ================= */}
-      {/* Ẩn trên màn hình MD trở lên. Bố cục: Video dính trên cùng -> Header -> Hộp Danh Sách (cuộn được) -> Tấn công & Ghi chú */}
-      <div className="md:hidden flex flex-col w-full h-full bg-[#020617]">
-        
-        {/* Video (Cố định trên cùng) */}
-        <div className="shrink-0 z-20 shadow-xl border-b border-slate-800">
-          {renderVideo()}
-        </div>
-        
-        {/* Khu vực cuộn chính của Mobile */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 flex flex-col gap-5">
-          {/* Header: Ngày & Tên đòn */}
-          <div className="shrink-0">
-            {renderHeader()}
-          </div>
-          
-          {/* Hộp Danh sách & Tìm kiếm (Đã được đưa lên trên Ghi chú, có thanh cuộn riêng dài 45vh) */}
-          <div className="shrink-0 h-[45vh] border border-slate-700 rounded-xl shadow-lg overflow-hidden">
-            {renderSearchAndList()}
-          </div>
-          
-          {/* Tình huống Tấn công & Ghi chú */}
-          <div className="shrink-0 pb-6">
-            {renderAttackAndNotes()}
-          </div>
-        </div>
+      {/* ================= CỘT PHẢI: DASHBOARD ================= */}
+      <div className={`w-full md:w-[40%] bg-[#0f172a] flex-col ${!selectedTech ? 'flex' : 'hidden md:flex'}`}>
+         
+         <div className="p-4 md:p-5 bg-[#020617] border-b border-slate-800 shrink-0 shadow-md z-10 flex flex-col gap-4">
+            <h1 className="text-xl font-black text-white tracking-wide uppercase flex items-center gap-2">
+               <LayoutGrid className="text-red-600 w-6 h-6"/>
+               Bảng Điều Khiển
+            </h1>
+            
+            {/* Bộ lọc Tìm kiếm */}
+            <div className="relative">
+               <Search className="absolute left-3.5 top-3 h-5 w-5 text-slate-400" />
+               <input
+                 type="text"
+                 className="w-full pl-11 pr-4 py-2.5 bg-slate-900/60 border border-slate-700 text-white text-sm rounded-xl focus:outline-none focus:border-red-600 transition-all placeholder-slate-500 shadow-inner"
+                 placeholder="Tìm đòn thế, tình huống tấn công..."
+                 value={searchTerm}
+                 onChange={(e) => setSearchTerm(e.target.value)}
+               />
+            </div>
+
+            {/* Thanh Tab Chọn Tuần */}
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+              {weeks.map(w => (
+                <button 
+                  key={w}
+                  onClick={() => setSelectedWeek(w)}
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors ${
+                    selectedWeek === w 
+                      ? 'bg-red-700 text-white shadow-md shadow-red-900/20' 
+                      : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                  }`}
+                >
+                  {w === 'All' ? 'Tất cả' : `Tuần ${w}`}
+                </button>
+              ))}
+            </div>
+         </div>
+
+         <div className="flex-1 overflow-y-auto p-4 md:p-5 custom-scrollbar bg-slate-950/30">
+            {groupedData.length === 0 ? (
+               <div className="text-center py-12 text-slate-500">
+                  <BookOpen className="w-14 h-14 mx-auto mb-4 opacity-20" />
+                  <p className="font-medium">Không tìm thấy dữ liệu phù hợp</p>
+               </div>
+            ) : (
+               <div className="space-y-8 pb-8">
+                  {groupedData.map(group => (
+                     <div key={group.week} className="space-y-3 relative">
+                        <h3 className="text-red-500 font-extrabold uppercase tracking-widest text-sm flex items-center gap-2 sticky top-[-1px] md:top-[-20px] bg-[#0f172a]/95 backdrop-blur-sm py-2.5 z-10 shadow-[0_10px_15px_-10px_rgba(2,6,23,0.8)]">
+                           <span className="w-2.5 h-2.5 rounded-full bg-red-600 shadow-[0_0_8px_rgba(220,38,38,0.8)]"></span>
+                           Tuần {group.week}
+                        </h3>
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-1 gap-3">
+                           {group.items.map(item => (
+                              <button
+                                 key={item.id}
+                                 onClick={() => handleSelect(item)}
+                                 className={`text-left p-3.5 rounded-xl border transition-all duration-200 flex flex-col gap-2 group ${
+                                    selectedTech?.id === item.id 
+                                    ? 'bg-gradient-to-r from-slate-800 to-slate-900 border-red-600 shadow-[0_4px_20px_rgba(220,38,38,0.15)] ring-1 ring-red-500/30' 
+                                    : 'bg-[#1e293b]/70 border-slate-700/60 hover:border-slate-500 hover:bg-[#1e293b]'
+                                 }`}
+                              >
+                                 <div className="flex justify-between items-center w-full mb-1">
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-900/80 text-slate-300 uppercase tracking-wider border border-slate-700/50">
+                                       {item.group}
+                                    </span>
+                                    {item.videoId ? (
+                                      <PlayCircle className={`w-5 h-5 transition-colors ${selectedTech?.id === item.id ? 'text-red-500' : 'text-slate-500 group-hover:text-red-400'}`} />
+                                    ) : (
+                                      <span className="w-2 h-2 rounded-full bg-slate-700"></span>
+                                    )}
+                                 </div>
+                                 <div>
+                                    <h4 className="text-sm md:text-base font-bold text-slate-100 line-clamp-2 leading-snug">
+                                       {item.techniques}
+                                    </h4>
+                                    <p className="text-[11px] md:text-xs text-slate-400 line-clamp-1 mt-1 font-medium">
+                                       {item.attacks}
+                                    </p>
+                                 </div>
+                              </button>
+                           ))}
+                        </div>
+                     </div>
+                  ))}
+               </div>
+            )}
+         </div>
       </div>
-
-      {/* ================= GIAO DIỆN PC / LAPTOP ================= */}
-      {/* Ẩn trên Mobile, chia làm 2 cột: Cột trái (Video + Chi tiết), Cột phải (Danh sách) */}
-      <div className="hidden md:flex w-full h-full flex-row">
-        
-        {/* CỘT TRÁI */}
-        <div className="w-[60%] flex flex-col bg-[#020617] border-r border-slate-800 z-10">
-          <div className="shrink-0 border-b border-slate-800 shadow-xl">
-            {renderVideo()}
-          </div>
-          <div className="flex-1 overflow-y-auto p-8 custom-scrollbar flex flex-col gap-6">
-            {renderHeader()}
-            {renderAttackAndNotes()}
-          </div>
-        </div>
-
-        {/* CỘT PHẢI */}
-        <div className="w-[40%] flex flex-col h-full bg-[#0f172a]">
-          {renderSearchAndList()}
-        </div>
-      </div>
-
     </div>
   );
 }
