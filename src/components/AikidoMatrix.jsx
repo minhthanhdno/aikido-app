@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Search, PlayCircle, BookOpen, Calendar, Video, FileText, AlertCircle } from 'lucide-react';
 
 // THAY URL WEB APP CỦA BẠN VÀO ĐÂY
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxu50_u37PEAkUchkbo12vnqhmNwJZtnfwagIvvQeBbElgZmN4f5vHlgiX_3J51ViB7/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw2-iSpmD23JorgT1VEsCn0UJMYAyUm437etO_2tz_NS2m4M-jzfK4a_56DV5m_ZThO/exec";
 
 export default function AikidoMatrix() {
   const [data, setData] = useState([]);
